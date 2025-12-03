@@ -20,10 +20,58 @@ pnpm run binary  # Creates the 'bird' executable
 - `bird thread <tweet-id-or-url> [--json]` — show the full conversation thread.
 - `bird search "<query>" [-n count] [--json]` — search for tweets matching a query.
 - `bird mentions [-n count] [--json]` — find tweets mentioning @clawdbot.
+- `bird whoami` — print which Twitter account your cookies belong to.
 - `bird check` — show which credentials are available and where they were sourced from.
+
+### Examples
+
+```bash
+# Show the logged-in account via GraphQL cookies
+bird whoami
+
+# Use Firefox profile cookies instead of Chrome
+bird --firefox-profile default-release whoami
+
+# Send a tweet
+bird tweet "hello from bird"
+
+# Check replies to a tweet
+bird replies https://x.com/user/status/1234567890123456789
+```
 
 Global engine switch:
 - `--engine graphql|sweetistics|auto` (default `auto`). `auto` uses Sweetistics when an API key is provided, otherwise falls back to direct GraphQL. `sweetistics` requires `--sweetistics-api-key` (or env) and uses Sweetistics for all commands. `graphql` forces direct Twitter cookies even if an API key is present.
+
+You can set persistent defaults via config files (JSON5):
+
+- Global: `~/.config/bird/config.json5`
+- Project: `./.birdrc.json5` (overrides global)
+
+Example `~/.config/bird/config.json5`:
+
+```json5
+{
+  // Default to Sweetistics unless overridden by --engine or BIRD_ENGINE
+  engine: "sweetistics",
+  // Prefer Firefox cookies by default
+  firefoxProfile: "default-release",
+  // Optional: Sweetistics defaults
+  sweetisticsApiKey: "sweet-...",
+  sweetisticsBaseUrl: "https://sweetistics.com"
+}
+```
+
+Precedence: CLI flags > environment variables > project config > global config.
+
+To default to Firefox and Sweetistics, create `~/.config/bird/config.json5`:
+
+```json5
+{
+  engine: "sweetistics",
+  firefoxProfile: "default-release",
+  sweetisticsApiKey: "sweet-..."
+}
+```
 
 ### Post a tweet
 
