@@ -1,13 +1,17 @@
 # Changelog
 
-## Unreleased
-
-## 0.1.0 — 2025-12-05
+## 0.1.0 — 2025-12-20
 
 ### Added
-- Core command set: `tweet`, `reply`, `read`, `replies`, `thread`, `search`, `mentions`, and `whoami`.
-- Dual transports: GraphQL (cookie-based) and Sweetistics (API key); `auto` engine switches to Sweetistics when a key is present.
-- Sweetistics features: media uploads (images or single video), 15s request timeouts, and conversation fetch with `force=true` so threads/replies are always fresh.
-- Browser credential sourcing: Firefox (`--firefox-profile`) and Chrome (`--chrome-profile`) alongside env/CLI; JSON5 configs (`~/.config/bird/config.json5`, `./.birdrc.json5`) with `allowChrome`/`allowFirefox` toggles and engine defaults.
-- `whoami` works with both transports and prefers Sweetistics when available; colorized help banner plus example block.
-- CI coverage: push/PR workflow (Node 22, pnpm 10, Go stable) running `pnpm test`; test suite expanded (≥70% coverage).
+- CLI commands: `tweet`, `reply`, `read`, `replies`, `thread`, `search`, `mentions`, `whoami`, `check`.
+- URL/ID shorthand for `read`, plus `--json` output where supported.
+- GraphQL engine with cookie auth from Firefox/Chrome/env/flags (macOS browsers).
+- Sweetistics engine (API key) with automatic fallback when configured.
+- Media uploads via Sweetistics with per-item alt text (images or single video).
+- Long-form Notes and Articles extraction for full text output.
+- Thread + reply fetching with full conversation parsing.
+- Search + mentions via GraphQL (latest timeline).
+- JSON5 config files (`~/.config/bird/config.json5`, `./.birdrc.json5`) with engine defaults, profiles, allowChrome/allowFirefox, and timeoutMs.
+- Request timeouts (`--timeout`, `timeoutMs`) for GraphQL and Sweetistics calls.
+- Bun-compiled standalone binary via `pnpm run build`.
+- Query ID refresh helper: `pnpm run graphql:update`.
