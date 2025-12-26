@@ -2,6 +2,9 @@
 
 ## 0.1.2 — Unreleased
 
+### Fixed
+- CLI `--version`: read version from `package.json`/`VERSION` (no hardcoded string).
+
 ## 0.1.1 — 2025-12-26
 
 ### Changed
