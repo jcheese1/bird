@@ -23,6 +23,7 @@ type TwitterClientApiPrivate = TwitterClient & {
     user?: { id: string; username: string; name: string };
     error?: string;
   }>;
+  getBookmarkFolderQueryIds: () => Promise<string[]>;
 };
 
 const makeResponse = (overrides: Partial<ResponseLike> = {}): ResponseLike => ({
@@ -210,7 +211,6 @@ describe('TwitterClient API coverage', () => {
       expect(result.error).toBe('HTTP 404');
     });
   });
-
   describe('likes error paths', () => {
     const stubCurrentUser = async () => ({
       success: true,
@@ -290,6 +290,68 @@ describe('TwitterClient API coverage', () => {
       clientPrivate.getLikesQueryIds = async () => ['test'];
 
       const result = await client.getLikes(1);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('HTTP 404');
+    });
+  });
+  describe('bookmark folder error paths', () => {
+    it('returns an error for non-ok responses', async () => {
+      const mockFetch = vi
+        .fn()
+        .mockResolvedValueOnce(makeResponse({ ok: false, status: 500, text: async () => 'down' }));
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      const client = new TwitterClient({ cookies: validCookies });
+      const result = await client.getBookmarkFolderTimeline('123', 1);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('HTTP 500');
+    });
+
+    it('returns API errors from payloads', async () => {
+      const mockFetch = vi.fn().mockResolvedValueOnce(
+        makeResponse({
+          json: async () => ({ errors: [{ message: 'bad' }] }),
+        }),
+      );
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      const client = new TwitterClient({ cookies: validCookies });
+      const result = await client.getBookmarkFolderTimeline('123', 1);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('bad');
+    });
+
+    it('returns an error when fetching throws', async () => {
+      const mockFetch = vi.fn().mockRejectedValue(new Error('boom'));
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      const client = new TwitterClient({ cookies: validCookies });
+      const result = await client.getBookmarkFolderTimeline('123', 1);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('boom');
+    });
+
+    it('returns unknown error when no query ids are available', async () => {
+      const client = new TwitterClient({ cookies: validCookies });
+      const clientPrivate = client as unknown as TwitterClientApiPrivate;
+      clientPrivate.getBookmarkFolderQueryIds = async () => [];
+
+      const result = await client.getBookmarkFolderTimeline('123', 1);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Unknown error fetching bookmark folder');
+    });
+
+    it('returns the second attempt error after 404s', async () => {
+      const mockFetch = vi.fn().mockResolvedValue(makeResponse({ ok: false, status: 404, text: async () => 'nope' }));
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      const client = new TwitterClient({ cookies: validCookies });
+      const result = await client.getBookmarkFolderTimeline('123', 1);
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('HTTP 404');
