@@ -28,8 +28,8 @@ export function registerUserCommands(program: Command, ctx: CliContext): void {
         const maxPages = cmdOpts.maxPages ? Number.parseInt(cmdOpts.maxPages, 10) : undefined;
 
         const usePagination = cmdOpts.all || cmdOpts.cursor;
-        if (maxPages !== undefined && !usePagination) {
-          console.error(`${ctx.p('err')}--max-pages requires --all or --cursor.`);
+        if (maxPages !== undefined && !cmdOpts.all) {
+          console.error(`${ctx.p('err')}--max-pages requires --all.`);
           process.exit(1);
         }
         if (maxPages !== undefined && (!Number.isFinite(maxPages) || maxPages <= 0)) {
@@ -37,28 +37,28 @@ export function registerUserCommands(program: Command, ctx: CliContext): void {
           process.exit(1);
         }
 
-      const { cookies, warnings } = await ctx.resolveCredentialsFromOptions(opts);
+        const { cookies, warnings } = await ctx.resolveCredentialsFromOptions(opts);
 
-      for (const warning of warnings) {
-        console.error(`${ctx.p('warn')}${warning}`);
-      }
+        for (const warning of warnings) {
+          console.error(`${ctx.p('warn')}${warning}`);
+        }
 
-      if (!cookies.authToken || !cookies.ct0) {
-        console.error(`${ctx.p('err')}Missing required credentials`);
-        process.exit(1);
-      }
-
-      const client = new TwitterClient({ cookies, timeoutMs });
-
-      let userId = cmdOpts.user;
-      if (!userId) {
-        const currentUser = await client.getCurrentUser();
-        if (!currentUser.success || !currentUser.user?.id) {
-          console.error(`${ctx.p('err')}Failed to get current user: ${currentUser.error || 'Unknown error'}`);
+        if (!cookies.authToken || !cookies.ct0) {
+          console.error(`${ctx.p('err')}Missing required credentials`);
           process.exit(1);
         }
-        userId = currentUser.user.id;
-      }
+
+        const client = new TwitterClient({ cookies, timeoutMs });
+
+        let userId = cmdOpts.user;
+        if (!userId) {
+          const currentUser = await client.getCurrentUser();
+          if (!currentUser.success || !currentUser.user?.id) {
+            console.error(`${ctx.p('err')}Failed to get current user: ${currentUser.error || 'Unknown error'}`);
+            process.exit(1);
+          }
+          userId = currentUser.user.id;
+        }
 
         if (cmdOpts.all) {
           // Fetch all pages
@@ -81,35 +81,39 @@ export function registerUserCommands(program: Command, ctx: CliContext): void {
               process.exit(1);
             }
 
+            let added = 0;
             for (const user of result.users) {
               if (!seen.has(user.id)) {
                 seen.add(user.id);
                 allUsers.push(user);
+                added += 1;
               }
             }
 
-            if (!result.nextCursor || result.users.length === 0) {
+            const pageCursor = result.nextCursor;
+            if (!pageCursor || result.users.length === 0 || added === 0 || pageCursor === cursor) {
               nextCursor = undefined;
               break;
             }
 
             if (maxPages && pageNum >= maxPages) {
-              nextCursor = result.nextCursor;
+              nextCursor = pageCursor;
               break;
             }
 
-            cursor = result.nextCursor;
+            cursor = pageCursor;
 
             // Rate limit: wait between pages to avoid overwhelming the API
             await new Promise((resolve) => setTimeout(resolve, 1000));
           }
 
           if (cmdOpts.json) {
-            console.log(JSON.stringify(allUsers, null, 2));
+            console.log(JSON.stringify({ users: allUsers, nextCursor: nextCursor ?? null }, null, 2));
           } else {
             console.error(`${ctx.p('info')}Total: ${allUsers.length} users`);
             if (nextCursor) {
               console.error(`${ctx.p('info')}Stopped at --max-pages. Use --cursor to continue.`);
+              console.error(`${ctx.p('info')}Next cursor: ${nextCursor}`);
             }
             for (const user of allUsers) {
               console.log(`@${user.username} (${user.name})`);
@@ -128,7 +132,11 @@ export function registerUserCommands(program: Command, ctx: CliContext): void {
 
           if (result.success && result.users) {
             if (cmdOpts.json) {
-              console.log(JSON.stringify({ users: result.users, nextCursor: result.nextCursor }, null, 2));
+              if (usePagination) {
+                console.log(JSON.stringify({ users: result.users, nextCursor: result.nextCursor ?? null }, null, 2));
+              } else {
+                console.log(JSON.stringify(result.users, null, 2));
+              }
             } else {
               if (result.users.length === 0) {
                 console.log('No users found.');
@@ -180,8 +188,8 @@ export function registerUserCommands(program: Command, ctx: CliContext): void {
         const maxPages = cmdOpts.maxPages ? Number.parseInt(cmdOpts.maxPages, 10) : undefined;
 
         const usePagination = cmdOpts.all || cmdOpts.cursor;
-        if (maxPages !== undefined && !usePagination) {
-          console.error(`${ctx.p('err')}--max-pages requires --all or --cursor.`);
+        if (maxPages !== undefined && !cmdOpts.all) {
+          console.error(`${ctx.p('err')}--max-pages requires --all.`);
           process.exit(1);
         }
         if (maxPages !== undefined && (!Number.isFinite(maxPages) || maxPages <= 0)) {
@@ -233,35 +241,39 @@ export function registerUserCommands(program: Command, ctx: CliContext): void {
               process.exit(1);
             }
 
+            let added = 0;
             for (const user of result.users) {
               if (!seen.has(user.id)) {
                 seen.add(user.id);
                 allUsers.push(user);
+                added += 1;
               }
             }
 
-            if (!result.nextCursor || result.users.length === 0) {
+            const pageCursor = result.nextCursor;
+            if (!pageCursor || result.users.length === 0 || added === 0 || pageCursor === cursor) {
               nextCursor = undefined;
               break;
             }
 
             if (maxPages && pageNum >= maxPages) {
-              nextCursor = result.nextCursor;
+              nextCursor = pageCursor;
               break;
             }
 
-            cursor = result.nextCursor;
+            cursor = pageCursor;
 
             // Rate limit: wait between pages to avoid overwhelming the API
             await new Promise((resolve) => setTimeout(resolve, 1000));
           }
 
           if (cmdOpts.json) {
-            console.log(JSON.stringify(allUsers, null, 2));
+            console.log(JSON.stringify({ users: allUsers, nextCursor: nextCursor ?? null }, null, 2));
           } else {
             console.error(`${ctx.p('info')}Total: ${allUsers.length} users`);
             if (nextCursor) {
               console.error(`${ctx.p('info')}Stopped at --max-pages. Use --cursor to continue.`);
+              console.error(`${ctx.p('info')}Next cursor: ${nextCursor}`);
             }
             for (const user of allUsers) {
               console.log(`@${user.username} (${user.name})`);
@@ -280,7 +292,11 @@ export function registerUserCommands(program: Command, ctx: CliContext): void {
 
           if (result.success && result.users) {
             if (cmdOpts.json) {
-              console.log(JSON.stringify({ users: result.users, nextCursor: result.nextCursor }, null, 2));
+              if (usePagination) {
+                console.log(JSON.stringify({ users: result.users, nextCursor: result.nextCursor ?? null }, null, 2));
+              } else {
+                console.log(JSON.stringify(result.users, null, 2));
+              }
             } else {
               if (result.users.length === 0) {
                 console.log('No users found.');
