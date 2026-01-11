@@ -37,6 +37,25 @@ describe('users commands', () => {
     }
   });
 
+  it('rejects --max-pages when only --cursor is provided', async () => {
+    const program = new Command();
+    registerUserCommands(program, baseCtx);
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+      throw new Error(`exit ${code}`);
+    }) as never);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    try {
+      await expect(
+        program.parseAsync(['node', 'bird', 'following', '--cursor', 'prev', '--max-pages', '2']),
+      ).rejects.toThrow('exit 1');
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('--max-pages requires --all.'));
+    } finally {
+      exitSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
+  });
+
   it('emits pagination JSON when --cursor is provided', async () => {
     const program = new Command();
     registerUserCommands(program, baseCtx);
@@ -58,6 +77,27 @@ describe('users commands', () => {
     expect(payload.nextCursor).toBe('next-1');
   });
 
+  it('prints next cursor in non-JSON single-page mode', async () => {
+    const program = new Command();
+    registerUserCommands(program, baseCtx);
+    vi.spyOn(TwitterClient.prototype, 'getCurrentUser').mockResolvedValue({
+      success: true,
+      user: { id: '123', username: 'tester', name: 'Tester' },
+    });
+    vi.spyOn(TwitterClient.prototype, 'getFollowing').mockResolvedValue({
+      success: true,
+      users: [{ id: '1', username: 'alpha', name: 'Alpha' }],
+      nextCursor: 'next-1',
+    });
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    await program.parseAsync(['node', 'bird', 'following', '--cursor', 'prev']);
+
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Next cursor: next-1'));
+    expect(logSpy).toHaveBeenCalled();
+  });
+
   it('emits pagination JSON for --all results', async () => {
     const program = new Command();
     registerUserCommands(program, baseCtx);
@@ -77,6 +117,67 @@ describe('users commands', () => {
     const payload = JSON.parse(String(logSpy.mock.calls[0]?.[0]));
     expect(payload.users).toHaveLength(1);
     expect(payload.nextCursor).toBe('next-1');
+  });
+
+  it('prints next cursor when stopping at max pages in non-JSON mode', async () => {
+    vi.useFakeTimers();
+    const program = new Command();
+    registerUserCommands(program, baseCtx);
+    vi.spyOn(TwitterClient.prototype, 'getCurrentUser').mockResolvedValue({
+      success: true,
+      user: { id: '123', username: 'tester', name: 'Tester' },
+    });
+    vi.spyOn(TwitterClient.prototype, 'getFollowing').mockResolvedValue({
+      success: true,
+      users: [{ id: '1', username: 'alpha', name: 'Alpha' }],
+      nextCursor: 'next-1',
+    });
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const run = program.parseAsync(['node', 'bird', 'following', '--all', '--max-pages', '1']);
+    await vi.advanceTimersByTimeAsync(1000);
+    await run;
+
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Next cursor: next-1'));
+    expect(logSpy).toHaveBeenCalled();
+  });
+
+  it('deduplicates users across pages in --all mode', async () => {
+    vi.useFakeTimers();
+    const program = new Command();
+    registerUserCommands(program, baseCtx);
+    vi.spyOn(TwitterClient.prototype, 'getCurrentUser').mockResolvedValue({
+      success: true,
+      user: { id: '123', username: 'tester', name: 'Tester' },
+    });
+    const followingSpy = vi.spyOn(TwitterClient.prototype, 'getFollowing');
+    followingSpy
+      .mockResolvedValueOnce({
+        success: true,
+        users: [
+          { id: '1', username: 'alpha', name: 'Alpha' },
+          { id: '2', username: 'beta', name: 'Beta' },
+        ],
+        nextCursor: 'cursor-1',
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        users: [
+          { id: '2', username: 'beta', name: 'Beta' },
+          { id: '3', username: 'gamma', name: 'Gamma' },
+        ],
+        nextCursor: undefined,
+      });
+
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const run = program.parseAsync(['node', 'bird', 'following', '--all', '--json']);
+    await vi.advanceTimersByTimeAsync(1000);
+    await run;
+
+    const payload = JSON.parse(String(logSpy.mock.calls[0]?.[0]));
+    expect(payload.users).toHaveLength(3);
+    expect(payload.users.map((user: { id: string }) => user.id)).toEqual(['1', '2', '3']);
   });
 
   it('stops pagination when cursor repeats or no new users are added', async () => {
