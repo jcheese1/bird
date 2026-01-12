@@ -27,6 +27,7 @@ Notes:
 - Cookie extraction timeout is configurable via `BIRD_LIVE_COOKIE_TIMEOUT_MS` (ms).
 - Spawned CLI `NODE_ENV` defaults to `production` (override with `BIRD_LIVE_NODE_ENV`).
 - If you don't tweet, set `BIRD_LIVE_TWEET_ID` to a known tweet ID to use for `read/replies/thread`.
+- Long-form article coverage: set `BIRD_LIVE_LONGFORM_TWEET_ID` to a known article tweet ID (example: `2007184284944322584` from @X; refresh by finding a tweet with `article` via `bird user-tweets X -n 20 --json`).
 - Optional: set `BIRD_LIVE_BOOKMARK_FOLDER_ID` to exercise `bookmarks --folder-id`.
 - `bird query-ids --fresh` live coverage: set `BIRD_LIVE_QUERY_IDS_FRESH=1`.
 - The live suite may hit internal X endpoints (v1.1 REST) as fallback; it still uses cookie auth (no developer API key).
