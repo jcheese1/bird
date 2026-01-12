@@ -383,7 +383,7 @@ export function withTweetDetails<TBase extends AbstractConstructor<TwitterClient
         if (!response.success) {
           // If we have some replies already, return them with the error
           if (allReplies.length > 0) {
-            return { success: true, tweets: allReplies, nextCursor: cursor, error: response.error };
+            return { success: false, tweets: allReplies, nextCursor: cursor, error: response.error };
           }
           return response;
         }
@@ -402,7 +402,7 @@ export function withTweetDetails<TBase extends AbstractConstructor<TwitterClient
         }
 
         const pageCursor = extractCursorFromInstructions(instructions);
-        if (!pageCursor || pageCursor === cursor || replies.length === 0) {
+        if (!pageCursor || pageCursor === cursor) {
           nextCursor = undefined;
           break;
         }
@@ -441,7 +441,7 @@ export function withTweetDetails<TBase extends AbstractConstructor<TwitterClient
         if (!response.success) {
           // If we have some tweets already, return them with the error
           if (allTweets.length > 0) {
-            return { success: true, tweets: allTweets, nextCursor: cursor, error: response.error };
+            return { success: false, tweets: allTweets, nextCursor: cursor, error: response.error };
           }
           return response;
         }
@@ -467,7 +467,7 @@ export function withTweetDetails<TBase extends AbstractConstructor<TwitterClient
         }
 
         const pageCursor = extractCursorFromInstructions(instructions);
-        if (!pageCursor || pageCursor === cursor || threadTweets.length === 0) {
+        if (!pageCursor || pageCursor === cursor) {
           nextCursor = undefined;
           break;
         }

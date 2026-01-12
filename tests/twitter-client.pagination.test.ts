@@ -185,10 +185,37 @@ describe('TwitterClient pagination for thread and replies', () => {
       const client = new TwitterClient({ cookies: validCookies });
       const result = await client.getRepliesPaged('1', { pageDelayMs: 0 });
 
-      expect(result.success).toBe(true);
+      expect(result.success).toBe(false);
       expect(result.tweets?.length).toBe(2);
       expect(result.error).toContain('500');
       expect(result.nextCursor).toBe('cursor-page-2');
+    });
+
+    it('continues pagination even when a page contains no replies', async () => {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => makeConversationPayload(['2'], 'cursor-page-2', '1'),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => makeConversationPayload(['10'], 'cursor-page-3', undefined),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => makeConversationPayload(['3'], undefined, '1'),
+        });
+
+      const client = new TwitterClient({ cookies: validCookies });
+      const result = await client.getRepliesPaged('1', { pageDelayMs: 0 });
+
+      expect(result.success).toBe(true);
+      expect(result.tweets?.map((t) => t.id)).toEqual(['2', '3']);
+      expect(result.nextCursor).toBeUndefined();
+      expect(mockFetch).toHaveBeenCalledTimes(3);
     });
   });
 

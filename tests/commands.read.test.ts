@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { describe, expect, it, vi } from 'vitest';
 import type { CliContext } from '../src/cli/shared.js';
 import { registerReadCommands } from '../src/commands/read.js';
+import { TwitterClient } from '../src/lib/twitter-client.js';
 
 describe('replies command', () => {
   const createMockContext = () =>
@@ -15,25 +16,25 @@ describe('replies command', () => {
       }),
       p: () => '',
       printTweets: () => undefined,
+      printTweetsResult: () => undefined,
     }) as unknown as CliContext;
 
-  it('requires --all or --cursor when --max-pages is provided', async () => {
+  it('uses pagination when --max-pages is provided', async () => {
     const program = new Command();
     registerReadCommands(program, createMockContext());
 
-    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
-      throw new Error(`exit ${code}`);
-    }) as never);
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const pagedSpy = vi
+      .spyOn(TwitterClient.prototype, 'getRepliesPaged')
+      .mockResolvedValue({ success: true, tweets: [], nextCursor: undefined });
+    const unpagedSpy = vi.spyOn(TwitterClient.prototype, 'getReplies').mockResolvedValue({ success: true, tweets: [] });
 
     try {
-      await expect(program.parseAsync(['node', 'bird', 'replies', '123', '--max-pages', '2'])).rejects.toThrow(
-        'exit 1',
-      );
-      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('--max-pages requires --all or --cursor'));
+      await program.parseAsync(['node', 'bird', 'replies', '123', '--max-pages', '2', '--json']);
+      expect(pagedSpy).toHaveBeenCalledTimes(1);
+      expect(unpagedSpy).toHaveBeenCalledTimes(0);
     } finally {
-      exitSpy.mockRestore();
-      errorSpy.mockRestore();
+      pagedSpy.mockRestore();
+      unpagedSpy.mockRestore();
     }
   });
 
@@ -90,23 +91,25 @@ describe('thread command', () => {
       }),
       p: () => '',
       printTweets: () => undefined,
+      printTweetsResult: () => undefined,
     }) as unknown as CliContext;
 
-  it('requires --all or --cursor when --max-pages is provided', async () => {
+  it('uses pagination when --max-pages is provided', async () => {
     const program = new Command();
     registerReadCommands(program, createMockContext());
 
-    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
-      throw new Error(`exit ${code}`);
-    }) as never);
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const pagedSpy = vi
+      .spyOn(TwitterClient.prototype, 'getThreadPaged')
+      .mockResolvedValue({ success: true, tweets: [], nextCursor: undefined });
+    const unpagedSpy = vi.spyOn(TwitterClient.prototype, 'getThread').mockResolvedValue({ success: true, tweets: [] });
 
     try {
-      await expect(program.parseAsync(['node', 'bird', 'thread', '123', '--max-pages', '2'])).rejects.toThrow('exit 1');
-      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('--max-pages requires --all or --cursor'));
+      await program.parseAsync(['node', 'bird', 'thread', '123', '--max-pages', '2', '--json']);
+      expect(pagedSpy).toHaveBeenCalledTimes(1);
+      expect(unpagedSpy).toHaveBeenCalledTimes(0);
     } finally {
-      exitSpy.mockRestore();
-      errorSpy.mockRestore();
+      pagedSpy.mockRestore();
+      unpagedSpy.mockRestore();
     }
   });
 
