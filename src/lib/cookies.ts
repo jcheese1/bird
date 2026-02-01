@@ -1,9 +1,4 @@
-/**
- * Browser cookie extraction for Twitter authentication.
- * Delegates to @steipete/sweet-cookie for Safari/Chrome/Firefox reads.
- */
 
-import { getCookies } from '@steipete/sweet-cookie';
 
 export interface TwitterCookies {
   authToken: string | null;
@@ -99,102 +94,23 @@ function pickCookieValue(
   return matches[0]?.value ?? null;
 }
 
-async function readTwitterCookiesFromBrowser(options: {
-  source: CookieSource;
-  chromeProfile?: string;
-  firefoxProfile?: string;
-  cookieTimeoutMs?: number;
-}): Promise<CookieExtractionResult> {
-  const warnings: string[] = [];
-  const out = buildEmpty();
-
-  const { cookies, warnings: providerWarnings } = await getCookies({
-    url: TWITTER_URL,
-    origins: TWITTER_ORIGINS,
-    names: [...TWITTER_COOKIE_NAMES],
-    browsers: [options.source],
-    mode: 'merge',
-    chromeProfile: options.chromeProfile,
-    firefoxProfile: options.firefoxProfile,
-    timeoutMs: options.cookieTimeoutMs,
-  });
-  warnings.push(...providerWarnings);
-
-  const authToken = pickCookieValue(cookies, 'auth_token');
-  const ct0 = pickCookieValue(cookies, 'ct0');
-  if (authToken) {
-    out.authToken = authToken;
-  }
-  if (ct0) {
-    out.ct0 = ct0;
-  }
-
-  if (out.authToken && out.ct0) {
-    out.cookieHeader = cookieHeader(out.authToken, out.ct0);
-    out.source = labelForSource(
-      options.source,
-      options.source === 'chrome' ? options.chromeProfile : options.firefoxProfile,
-    );
-    return { cookies: out, warnings };
-  }
-
-  if (options.source === 'safari') {
-    warnings.push('No Twitter cookies found in Safari. Make sure you are logged into x.com in Safari.');
-  } else if (options.source === 'chrome') {
-    warnings.push('No Twitter cookies found in Chrome. Make sure you are logged into x.com in Chrome.');
-  } else {
-    warnings.push(
-      'No Twitter cookies found in Firefox. Make sure you are logged into x.com in Firefox and the profile exists.',
-    );
-  }
-
-  return { cookies: out, warnings };
-}
-
-export async function extractCookiesFromSafari(): Promise<CookieExtractionResult> {
-  return readTwitterCookiesFromBrowser({ source: 'safari' });
-}
-
-export async function extractCookiesFromChrome(profile?: string): Promise<CookieExtractionResult> {
-  return readTwitterCookiesFromBrowser({ source: 'chrome', chromeProfile: profile });
-}
-
-export async function extractCookiesFromFirefox(profile?: string): Promise<CookieExtractionResult> {
-  return readTwitterCookiesFromBrowser({ source: 'firefox', firefoxProfile: profile });
-}
-
 /**
  * Resolve Twitter credentials from multiple sources.
  * Priority: CLI args > environment variables > browsers (ordered).
  */
 export async function resolveCredentials(options: {
-  authToken?: string;
-  ct0?: string;
-  cookieSource?: CookieSource | CookieSource[];
-  chromeProfile?: string;
-  firefoxProfile?: string;
-  cookieTimeoutMs?: number;
+  authToken: string;
+  ct0: string;
 }): Promise<CookieExtractionResult> {
   const warnings: string[] = [];
   const cookies = buildEmpty();
-  const cookieTimeoutMs =
-    typeof options.cookieTimeoutMs === 'number' &&
-    Number.isFinite(options.cookieTimeoutMs) &&
-    options.cookieTimeoutMs > 0
-      ? options.cookieTimeoutMs
-      : process.platform === 'darwin'
-        ? DEFAULT_COOKIE_TIMEOUT_MS
-        : undefined;
+ 
+  cookies.authToken = options.authToken;
+  cookies.source = 'CLI argument';
 
-  if (options.authToken) {
-    cookies.authToken = options.authToken;
+  cookies.ct0 = options.ct0;
+  if (!cookies.source) {
     cookies.source = 'CLI argument';
-  }
-  if (options.ct0) {
-    cookies.ct0 = options.ct0;
-    if (!cookies.source) {
-      cookies.source = 'CLI argument';
-    }
   }
 
   readEnvCookie(cookies, ['AUTH_TOKEN', 'TWITTER_AUTH_TOKEN'], 'authToken');
@@ -203,32 +119,6 @@ export async function resolveCredentials(options: {
   if (cookies.authToken && cookies.ct0) {
     cookies.cookieHeader = cookieHeader(cookies.authToken, cookies.ct0);
     return { cookies, warnings };
-  }
-
-  const sourcesToTry = resolveSources(options.cookieSource);
-  for (const source of sourcesToTry) {
-    const res = await readTwitterCookiesFromBrowser({
-      source,
-      chromeProfile: options.chromeProfile,
-      firefoxProfile: options.firefoxProfile,
-      cookieTimeoutMs,
-    });
-    warnings.push(...res.warnings);
-    if (res.cookies.authToken && res.cookies.ct0) {
-      return { cookies: res.cookies, warnings };
-    }
-  }
-
-  if (!cookies.authToken) {
-    warnings.push(
-      'Missing auth_token - provide via --auth-token, AUTH_TOKEN env var, or login to x.com in Safari/Chrome/Firefox',
-    );
-  }
-  if (!cookies.ct0) {
-    warnings.push('Missing ct0 - provide via --ct0, CT0 env var, or login to x.com in Safari/Chrome/Firefox');
-  }
-  if (cookies.authToken && cookies.ct0) {
-    cookies.cookieHeader = cookieHeader(cookies.authToken, cookies.ct0);
   }
 
   return { cookies, warnings };
